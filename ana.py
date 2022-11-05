@@ -43,7 +43,7 @@ class dataset:
 
     def __init__(self, filename, row, type, l_range, u_range, startdatetime, enddatetime, span, fontsize, scale):
         self.filename = filename
-        self.row = row
+        self.row = int(row)
         if type=='depth':
             self.type = MesurementType.DEPTH
         elif type == 'pressure':
@@ -51,8 +51,8 @@ class dataset:
         elif type == 'volt':
             self.type = MesurementType.VOLTAGE
 
-        self.l_range = l_range
-        self.u_range = u_range
+        self.l_range = float(l_range)
+        self.u_range = float(u_range)
         #2022-10-06 12:00
         s = startdatetime.split()
         s1 = s[0].split('-')
@@ -80,9 +80,11 @@ class dataset:
         else:
             self.span = SpanType.UNKNOWN
 
-        self.fontsize = fontsize
+        self.fontsize = int(fontsize)
 
-        self.std_scale = scale
+        self.std_scale = int(scale)
+
+
 
 def genDateTimeList(starttime, endtime, span):
     list=[]
@@ -182,6 +184,19 @@ def genGraphTextList(starttime, endtime, span):
         
         list.append(draw_x)
 
+def convType(type):
+    match MesurementType(type):
+        case MesurementType.PRESSURE:
+            return 'pressure'
+
+        case MesurementType.DEPTH:
+            return 'depth'
+
+        case MesurementType.VOLTAGE:
+            return 'volt'
+    
+    return ''
+
 parser = argparse.ArgumentParser()
 parser.add_argument('-file', default='20221003_0000_AWH-USB_0004_141336_A.csv')
 parser.add_argument('-row',default=27)
@@ -243,19 +258,20 @@ for l in query_list:
     print('mean=' + mean_str)
     print('median=' + median_str)
     print('std=' + std_str)
-
+    
     match MesurementType(ds.type):
         case MesurementType.PRESSURE:
-            df_tmp.iloc[:,0].plot()
+            df_tmp.iloc[:,0:1].plot()
             plt.ylabel("pressure[MPa]", fontsize=ds.fontsize)
 
         case MesurementType.DEPTH:
-            df_tmp.iloc[:,1].plot()
+            df_tmp.iloc[:,1:2].plot()
             plt.ylabel("depth[m]", fontsize=ds.fontsize)
 
         case MesurementType.VOLTAGE:
-            df_tmp.iloc[:,2].plot()
+            df_tmp.iloc[:,2:3].plot()
             plt.ylabel("voltage[V]", fontsize=ds.fontsize)
+            
 
     plt.title(title_list[count], fontsize=ds.fontsize)
     plt.xlabel('datetime', fontsize=ds.fontsize)
@@ -269,8 +285,9 @@ for l in query_list:
     'min=' + min_str + '\n' + \
     'mean=' + mean_str + '\n' + \
     'median=' + median_str + '\n' + \
-    'std=' + std_str + ' scale:X' + ds.std_scale
+    'std=' + std_str + ' scale:X' + str(ds.std_scale)
+    #print(drawtext)
     plt.text(dx,ds.u_range-((ds.u_range-ds.l_range)/5.0),drawtext, fontsize=ds.fontsize)
-    plt.savefig(title_list[count] + '.png')
+    plt.savefig(title_list[count] + '_' + convType(ds.type) +'.png')
     plt.clf()
     count = count + 1
