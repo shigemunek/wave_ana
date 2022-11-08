@@ -21,6 +21,7 @@ import matplotlib.dates as dates
 import argparse
 import datetime
 from enum import IntEnum
+import csv
 
 class MesurementType(IntEnum):
     # Do not change the number
@@ -104,19 +105,27 @@ def genDateTimeList(starttime, endtime, span):
         case _:
             td_delta = datetime.timedelta(hours=1)
     endflag = False
+    writeflag = False
+    
     while True:
 
         if endflag:
             return list
 
-        str_s1 =  starttime.strftime("%Y-%m-%d %H:%M")
-        starttime = starttime + td_delta
-        str_s2 =  starttime.strftime("%Y-%m-%d %H:%M")
+        if starttime.minute == 0:
+            str_s1 =  starttime.strftime("%Y-%m-%d %H:%M")
+            starttime = starttime + td_delta
+            str_s2 =  starttime.strftime("%Y-%m-%d %H:%M")
+            writeflag=True
+        else:
+            starttime = starttime + td_delta
         if starttime>=endtime:
             endflag = True
       
         #date >= "2022-10-06 12:00" and date < "2022-10-06 13:00"
-        list.append('date >="' + str_s1 + '" and date < "' + str_s2 + '"')
+        if writeflag:
+            list.append('date >="' + str_s1 + '" and date < "' + str_s2 + '"')
+            writeflag=False
     
 def genTitleList(starttime, endtime, span):
     list=[]
@@ -137,19 +146,26 @@ def genTitleList(starttime, endtime, span):
             td_delta = datetime.timedelta(hours=1)
             
     endflag = False
+    writeflag = False
     while True:
 
         if endflag:
             return list
 
-        str_s1 =  starttime.strftime("%Y-%m-%d %H_%M")
-        starttime = starttime + td_delta
-        str_s2 =  starttime.strftime("%Y-%m-%d %H_%M")
+        if starttime.minute == 0:
+            str_s1 =  starttime.strftime("%Y-%m-%d %H_%M")
+            starttime = starttime + td_delta
+            str_s2 =  starttime.strftime("%Y-%m-%d %H_%M")
+            writeflag = True
+        else:
+            starttime = starttime + td_delta
         if starttime>=endtime:
             endflag = True
         
+        if writeflag:
         #2022-10-06 12_00_2022-10-06 13_00
-        list.append(str_s1 + '___' + str_s2)
+            list.append(str_s1 + '___' + str_s2)
+            writeflag = False
 
 def genGraphTextList(starttime, endtime, span):
     list=[]
@@ -170,19 +186,22 @@ def genGraphTextList(starttime, endtime, span):
             td_delta = datetime.timedelta(hours=1)
             
     endflag = False
+    writeflag = False
     while True:
 
         if endflag:
             return list
 
-        draw_x = dates.date2num(starttime)
-        
+        if starttime.minute == 0:
+          draw_x = dates.date2num(starttime)
+          writeflag=True
         starttime = starttime + td_delta
 
         if starttime>=endtime:
             endflag = True
-        
-        list.append(draw_x)
+        if writeflag:
+            list.append(draw_x)
+            writeflag=False
 
 def convType(type):
     match MesurementType(type):
@@ -201,17 +220,17 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-file', default='20221003_0000_AWH-USB_0004_141336_A.csv')
 parser.add_argument('-row',default=27)
 # pressure:圧力, depth:深さ, volt:電圧
-parser.add_argument('-type',default='pressure')
-#parser.add_argument('-type',default='depth')
+#parser.add_argument('-type',default='pressure')
+parser.add_argument('-type',default='depth')
 #parser.add_argument('-type',default='volt')
-parser.add_argument('-lower_range',default=0.04)
-parser.add_argument('-upper_range',default=0.06)
-parser.add_argument('-sdt',default='2022-10-06 12:00')
-parser.add_argument('-edt',default='2022-10-06 18:00')
+parser.add_argument('-lower_range',default=4.5)
+parser.add_argument('-upper_range',default=5.5)
+parser.add_argument('-sdt',default='2022-10-05 09:00')
+parser.add_argument('-edt',default='2022-10-21 00:00')
 parser.add_argument('-fontsize',default=36)
 #span -> 10min, 1h, 6h, 1day, 1week, 1month
-#parser.add_argument('-span',default='10min')
-parser.add_argument('-span',default='1h')
+parser.add_argument('-span',default='10min')
+#parser.add_argument('-span',default='1h')
 #parser.add_argument('-span',default='6h')
 #parser.add_argument('-span',default='1day')
 #parser.add_argument('-span',default='1week')
@@ -237,9 +256,22 @@ graphtext_list = genGraphTextList(ds.startdatetime,ds.enddatetime, ds.span)
 
 plt.rcParams["figure.figsize"] = [32,24]
 count=0
+
+csv_list=[]
+ll=[]
+ll.append('計測日時')
+ll.append('最大値')
+ll.append('最小値')
+ll.append('最大と最小の差')
+ll.append('平均値')
+ll.append('中央値')
+ll.append('標準偏差')
+csv_list.append(ll)
+
 for l in query_list:
-    #print(l)
+    print(l)
     df_tmp = df.query(l)
+
     max = df_tmp.max(axis=0)
     min = df_tmp.min(axis=0)
     mean = df_tmp.mean(axis=0)
@@ -249,16 +281,31 @@ for l in query_list:
 
     max_str='{:.3f}'.format(max[ds.type])
     min_str='{:.3f}'.format(min[ds.type])
+    diff_str='{:.3f}'.format(max[ds.type]-min[ds.type])
     mean_str='{:.3f}'.format(mean[ds.type])
     median_str='{:.3f}'.format(median[ds.type])
     std_str='{:.3f}'.format(std_facted)
 
     print('max=' + max_str)
     print('min=' + min_str)
+    print('diff=' + diff_str)
     print('mean=' + mean_str)
     print('median=' + median_str)
     print('std=' + std_str)
+
+    l_index = list(df_tmp.index)
+    dt = l_index[0]
     
+    l2=[]
+    l2.append(dt.strftime("%Y-%m-%d %H:%M"))
+    l2.append(max_str)
+    l2.append(min_str)
+    l2.append(diff_str)
+    l2.append(mean_str)
+    l2.append(median_str)
+    l2.append(std_str)
+    csv_list.append(l2)
+
     match MesurementType(ds.type):
         case MesurementType.PRESSURE:
             df_tmp.iloc[:,0:1].plot()
@@ -283,11 +330,18 @@ for l in query_list:
     dx = graphtext_list[count]
     drawtext = 'max=' + max_str + '\n' + \
     'min=' + min_str + '\n' + \
+    'dif=' + diff_str + '\n' + \
     'mean=' + mean_str + '\n' + \
     'median=' + median_str + '\n' + \
     'std=' + std_str + ' scale:X' + str(ds.std_scale)
-    #print(drawtext)
+    print(drawtext)
     plt.text(dx,ds.u_range-((ds.u_range-ds.l_range)/5.0),drawtext, fontsize=ds.fontsize)
     plt.savefig(title_list[count] + '_' + convType(ds.type) +'.png')
     plt.clf()
     count = count + 1
+
+with open('csv_list.csv', 'wt', encoding='utf-8', newline='') as fout:
+    # ライター（書き込み者）を作成
+    writer = csv.writer(fout)
+    # ライターでデータ（行列）をファイルに出力
+    writer.writerows(csv_list)
